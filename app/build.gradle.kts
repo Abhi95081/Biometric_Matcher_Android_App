@@ -76,5 +76,7 @@ dependencies {
     implementation ("androidx.fragment:fragment-ktx:1.6.1")  // or latest stable
     implementation ("androidx.compose.ui:ui:1.5.0")
 
+    implementation("io.coil-kt:coil-compose:2.5.0")
+
     implementation("com.squareup.okhttp3:logging-interceptor:4.9.3")
 }

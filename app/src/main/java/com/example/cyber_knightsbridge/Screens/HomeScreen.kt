@@ -2,140 +2,301 @@ package com.example.cyber_knightsbridge.Screens
 
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.provider.OpenableColumns
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
+import coil.transform.CircleCropTransformation
 import com.example.cyber_knightsbridge.AiModels.RetrofitInstance
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen() {
     val context = LocalContext.current
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
-    var resultText by remember { mutableStateOf("No result") }
-    var isLoading by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val coroutineScope = rememberCoroutineScope()
 
-    val storagePermission = if (android.os.Build.VERSION.SDK_INT >= 33) {
+    // States
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    var matchResult by remember { mutableStateOf<FingerprintMatchResult?>(null) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // Permission handling based on SDK version
+    val storagePermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         Manifest.permission.READ_MEDIA_IMAGES
     } else {
         Manifest.permission.READ_EXTERNAL_STORAGE
     }
 
-    var hasStoragePermission by remember {
+    var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, storagePermission) == PackageManager.PERMISSION_GRANTED
         )
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        hasStoragePermission = granted
-        println("Permission granted? $granted")
+    // Permission launcher
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasPermission = granted
+        errorMessage = if (!granted) "Permission denied. Please allow storage permission." else null
     }
 
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+    // Image picker launcher
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
         selectedImageUri = uri
-        println("Image selected: $uri")
+        matchResult = null
+        errorMessage = null
     }
 
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text(text = "Has permission: $hasStoragePermission")
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Fingerprint Matcher", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    Icon(
+                        imageVector = Icons.Default.AccountCircle,
+                        contentDescription = "App Icon",
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                }
+            )
+        },
+        content = { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .padding(paddingValues)
+                    .padding(24.dp)
+                    .fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Select Image Button
+                OutlinedButton(
+                    onClick = {
+                        if (!hasPermission) {
+                            permissionLauncher.launch(storagePermission)
+                        } else {
+                            imagePickerLauncher.launch("image/*")
+                        }
+                    },
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    Icon(Icons.Default.Person, contentDescription = null)
+                    Spacer(Modifier.width(12.dp))
+                    Text("Select Fingerprint Image")
+                }
 
-        Button(onClick = {
-            println("Button clicked, hasPermission=$hasStoragePermission")
-            if (!hasStoragePermission) {
-                permissionLauncher.launch(storagePermission)
-            } else {
-                launcher.launch("image/*")
-            }
-        }) {
-            Text("Select Fingerprint Image")
-        }
+                Spacer(modifier = Modifier.height(24.dp))
 
-        Spacer(modifier = Modifier.height(16.dp))
+                // Display selected image or placeholder
+                if (selectedImageUri != null) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(220.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(12.dp)
+                    ) {
+                        Image(
+                            painter = rememberAsyncImagePainter(
+                                ImageRequest.Builder(context)
+                                    .data(selectedImageUri)
+                                    .crossfade(true)
+                                    .build()
+                            ),
+                            contentDescription = "Selected Image",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.LightGray.copy(alpha = 0.1f))
+                        )
+                    }
+                } else {
+                    Spacer(Modifier.height(220.dp))
+                    Text(
+                        "No image selected",
+                        color = Color.Gray,
+                        fontStyle = FontStyle.Italic
+                    )
+                }
 
-        Button(
-            onClick = {
-                selectedImageUri?.let { uri ->
-                    scope.launch(Dispatchers.IO) {
-                        withContext(Dispatchers.Main) { isLoading = true }
-                        try {
-                            val file = createTempFileFromUri(context, uri)
-                            val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
-                            val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
-                            val response = RetrofitInstance.api.matchFingerprint(body)
-                            withContext(Dispatchers.Main) {
-                                resultText = if (response.isSuccessful) {
-                                    val profile = response.body()
-                                    "Name: ${profile?.name}\nAge: ${profile?.age}"
-                                } else {
-                                    "No match found"
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Upload & Match Button
+                Button(
+                    onClick = {
+                        selectedImageUri?.let { uri ->
+                            coroutineScope.launch {
+                                isLoading = true
+                                errorMessage = null
+                                matchResult = null
+                                try {
+                                    val file = createTempFileFromUri(context, uri)
+                                    val requestBody = file.asRequestBody("image/*".toMediaTypeOrNull())
+                                    val multipartBody = MultipartBody.Part.createFormData("file", file.name, requestBody)
+
+                                    val response = RetrofitInstance.api.matchFingerprint(multipartBody)
+                                    if (response.isSuccessful) {
+                                        val profile = response.body()?.data
+                                        matchResult = if (profile != null)
+                                            FingerprintMatchResult.Success(profile.name, profile.age, profile.photo)
+                                        else FingerprintMatchResult.NotFound
+                                    } else {
+                                        errorMessage = "Server error: ${response.code()}"
+                                    }
+                                } catch (e: Exception) {
+                                    errorMessage = "Error: ${e.localizedMessage ?: "Unknown error"}"
+                                } finally {
+                                    isLoading = false
                                 }
                             }
-                        } catch (e: Exception) {
-                            withContext(Dispatchers.Main) {
-                                resultText = "Error: ${e.message}"
-                            }
                         }
-                        withContext(Dispatchers.Main) { isLoading = false }
+                    },
+                    enabled = selectedImageUri != null && !isLoading,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    } else {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Upload & Match")
                     }
-                } ?: run {
-                    resultText = "Please select an image first"
                 }
-            },
-            enabled = selectedImageUri != null && !isLoading
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            } else {
-                Text("Upload & Match")
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Display error or match result
+                when {
+                    errorMessage != null -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Close, tint = MaterialTheme.colorScheme.error, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(errorMessage!!, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+
+                    matchResult != null -> {
+                        when (val result = matchResult!!) {
+                            is FingerprintMatchResult.Success -> ProfileCard(result)
+                            is FingerprintMatchResult.NotFound -> Text(
+                                "No matching profile found.",
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
             }
         }
+    )
+}
 
-        Spacer(modifier = Modifier.height(16.dp))
+// Result sealed class
+sealed class FingerprintMatchResult {
+    data class Success(val name: String, val age: Int?, val photo: String) : FingerprintMatchResult()
+    object NotFound : FingerprintMatchResult()
+}
 
-        Text(resultText)
+@Composable
+fun ProfileCard(result: FingerprintMatchResult.Success) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(10.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                painter = rememberAsyncImagePainter(
+                    ImageRequest.Builder(LocalContext.current)
+                        .data(result.photo)
+                        .crossfade(true)
+                        .transformations(CircleCropTransformation())
+                        .build()
+                ),
+                contentDescription = "User Photo",
+                modifier = Modifier
+                    .size(90.dp)
+                    .background(Color.White, CircleShape)
+                    .padding(4.dp)
+            )
+            Spacer(modifier = Modifier.width(20.dp))
+            Column {
+                Text("Name:", fontWeight = FontWeight.Medium, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+                Text(result.name, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+//                if (result.age != null) {
+//                    Text("Age:", fontWeight = FontWeight.Medium, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+//                    Text(result.age.toString(), fontWeight = FontWeight.Bold, fontSize = 22.sp)
+//                }
+            }
+        }
     }
 }
 
+// Utility: Create temp file from Uri safely with auto-closing streams
 fun createTempFileFromUri(context: Context, uri: Uri): File {
-    val inputStream = context.contentResolver.openInputStream(uri)
-        ?: throw Exception("Failed to open input stream")
+    context.contentResolver.openInputStream(uri).use { inputStream ->
+        if (inputStream == null) throw Exception("Failed to open input stream from URI")
 
-    val fileName = getFileName(context, uri)
-    val extension = fileName.substringAfterLast('.', "")
-    val suffix = if (extension.isNotEmpty()) ".$extension" else ".tmp"
+        val fileName = getFileName(context, uri).takeIf { it.isNotBlank() } ?: "image_temp.jpg"
+        val extension = fileName.substringAfterLast('.', "")
+        val suffix = if (extension.isNotEmpty()) ".$extension" else ".tmp"
+        val prefixRaw = fileName.substringBeforeLast('.', fileName)
+        val prefix = if (prefixRaw.length >= 3) prefixRaw else "img"
 
-    // prefix must be >= 3 chars for createTempFile
-    val prefixRaw = fileName.substringBeforeLast('.', fileName)
-    val prefix = if (prefixRaw.length >= 3) prefixRaw else "file"
-
-    val tempFile = File.createTempFile(prefix, suffix, context.cacheDir)
-    tempFile.outputStream().use { output ->
-        inputStream.copyTo(output)
+        val tempFile = File.createTempFile(prefix, suffix, context.cacheDir)
+        tempFile.outputStream().use { output ->
+            inputStream.copyTo(output)
+        }
+        return tempFile
     }
-    return tempFile
 }
 
+// Utility: Get filename from content Uri
 fun getFileName(context: Context, uri: Uri): String {
     val cursor = context.contentResolver.query(uri, null, null, null, null)
     cursor?.use {
@@ -144,6 +305,5 @@ fun getFileName(context: Context, uri: Uri): String {
             return it.getString(nameIndex)
         }
     }
-    // fallback filename
-    return "temp_file.jpg"
+    return ""
 }
