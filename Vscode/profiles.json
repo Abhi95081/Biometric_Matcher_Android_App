@@ -1,0 +1,12 @@
+[
+  {"name": "Abhi", "age": 21, "photo": "p0.png", "fingerprint": "00000.bmp"},
+  {"name": "Rou", "age": 22, "photo": "p1.png", "fingerprint": "00001.bmp"},
+  {"name": "Shivam", "age": 23, "photo": "p2.png", "fingerprint": "00002.bmp"},
+  {"name": "Sonu", "age": 24, "photo": "p3.png", "fingerprint": "00003.bmp"},
+  {"name": "Singh", "age": 25, "photo": "p4.png", "fingerprint": "00004.bmp"},
+  {"name": "Abhishek", "age": 26, "photo": "p5.png", "fingerprint": "00005.bmp"},
+  {"name": "Inata", "age": 27, "photo": "p6.png", "fingerprint": "00006.bmp"},
+  {"name": "Good", "age": 28, "photo": "p7.png", "fingerprint": "00007.bmp"},
+  {"name": "Person 8", "age": 29, "photo": "p8.png", "fingerprint": "00008.bmp"},
+  {"name": "Person 9", "age": 30, "photo": "p9.png", "fingerprint": "00009.bmp"}
+]
