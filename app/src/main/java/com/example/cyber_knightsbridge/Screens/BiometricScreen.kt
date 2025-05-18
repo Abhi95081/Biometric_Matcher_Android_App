@@ -3,28 +3,19 @@ package com.example.cyber_knightsbridge.Screens
 import android.widget.Toast
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme.colorScheme
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -71,12 +62,11 @@ fun BiometricLoginScreen(onAuthenticated: () -> Unit) {
     val promptInfo = remember {
         BiometricPrompt.PromptInfo.Builder()
             .setTitle("Biometric Login")
-            .setSubtitle("Use your fingerprint or face")
+            .setSubtitle("Use your fingerprint")
             .setNegativeButtonText("Cancel")
             .build()
     }
 
-    // Automatically trigger auth on screen load
     LaunchedEffect(Unit) {
         if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) {
             biometricPrompt.authenticate(promptInfo)
@@ -85,43 +75,92 @@ fun BiometricLoginScreen(onAuthenticated: () -> Unit) {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    // Animated shimmer background gradient
+    val infiniteTransition = rememberInfiniteTransition(label = "ShimmerBackground")
+    val offsetX by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 5000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "OffsetX"
+    )
+
+    val shimmerBrush = Brush.linearGradient(
+        colors = listOf(Color(0xFF1F1C2C), Color(0xFF928DAB), Color(0xFF1F1C2C)),
+        start = androidx.compose.ui.geometry.Offset(offsetX, 0f),
+        end = androidx.compose.ui.geometry.Offset(offsetX + 500f, 1000f)
+    )
+
+    val statusColor by animateColorAsState(
+        targetValue = when {
+            "Successful" in authStatus -> Color(0xFF4CAF50)
+            "Failed" in authStatus -> Color(0xFFFF5252)
+            "Error" in authStatus -> Color(0xFFFF9800)
+            else -> colorScheme.onSurfaceVariant
+        },
+        label = "StatusColor"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(shimmerBrush),
+        contentAlignment = Alignment.Center
+    ) {
         Card(
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(8.dp),
             modifier = Modifier
                 .padding(24.dp)
                 .fillMaxWidth()
+                .shadow(16.dp, RoundedCornerShape(24.dp)),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = colorScheme.surface.copy(alpha = 0.92f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier
+                    .padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 Icon(
-                    painter = painterResource(id = R.drawable.fingerprint),
-                    contentDescription = "Fingerprint",
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    painter = painterResource(id = R.drawable.fingerprint_icons),
+                    contentDescription = "Fingerprint Icon",
+                    modifier = Modifier
+                        .size(100.dp)
+                        .shadow(10.dp, shape = RoundedCornerShape(50))
+                        .background(Color(0xFF1E88E5), shape = RoundedCornerShape(50))
+                        .padding(20.dp),
+                    tint = Color.White
                 )
+
                 Text(
-                    text = "Biometric Authentication",
+                    text = "Secure Biometric Login",
                     style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.ExtraBold,
+                    color = colorScheme.primary
                 )
+
                 Text(
                     text = authStatus,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                    color = statusColor
                 )
-                Button(onClick = {
-                    if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) {
-                        biometricPrompt.authenticate(promptInfo)
-                    } else {
-                        Toast.makeText(context, "Biometric not available", Toast.LENGTH_SHORT).show()
-                    }
-                }) {
-                    Text("Retry Authentication")
+
+                Button(
+                    onClick = {
+                        if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) {
+                            biometricPrompt.authenticate(promptInfo)
+                        } else {
+                            Toast.makeText(context, "Biometric not available", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 10.dp)
+                ) {
+                    Text("Retry Authentication", fontWeight = FontWeight.Bold)
                 }
             }
         }
