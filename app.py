@@ -20,42 +20,56 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Change in production for security
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Mount static files to serve photos like /static/image.png
 app.mount("/static", StaticFiles(directory="database/photos"), name="static")
 
-MATCH_THRESHOLD = 90  # minimum number of matches to consider a valid match
-
+MATCH_THRESHOLD = 25.0  # percent
 
 def read_image(file_bytes: bytes) -> np.ndarray:
     img_array = np.asarray(bytearray(file_bytes), dtype=np.uint8)
-    return cv2.imdecode(img_array, cv2.IMREAD_GRAYSCALE)
+    img = cv2.imdecode(img_array, cv2.IMREAD_GRAYSCALE)
+    return apply_clahe(img)
 
+def apply_clahe(img: np.ndarray) -> np.ndarray:
+    if img is None:
+        return None
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    return clahe.apply(img)
 
-def compare_fingerprints(img1: np.ndarray, img2: np.ndarray) -> int:
-    orb = cv2.ORB_create()
+def compare_fingerprints(img1: np.ndarray, img2: np.ndarray) -> float:
+    orb = cv2.ORB_create(nfeatures=1000)
     kp1, des1 = orb.detectAndCompute(img1, None)
     kp2, des2 = orb.detectAndCompute(img2, None)
-    if des1 is None or des2 is None:
-        return 0
-    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    matches = bf.match(des1, des2)
-    return len(matches)
 
+    if des1 is None or des2 is None:
+        return 0.0
+
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING)
+    matches = bf.knnMatch(des1, des2, k=2)
+    good_matches = [m for m, n in matches if m.distance < 0.75 * n.distance]
+
+    total_kp = min(len(kp1), len(kp2))
+    if total_kp == 0:
+        return 0.0
+    return len(good_matches) / total_kp * 100
 
 @app.post("/match-fingerprint/")
 async def match_fingerprint(file: UploadFile = File(...), request: Request = None):
     try:
         contents = await file.read()
+        if not contents:
+            raise ValueError("Empty file.")
         uploaded_img = read_image(contents)
+        if uploaded_img is None:
+            raise ValueError("Invalid image.")
     except Exception:
         return JSONResponse(
-            content={"status": "error", "message": "Failed to read uploaded image."},
+            content={"status": "error", "message": "Invalid or unreadable image."},
             status_code=400,
         )
 
@@ -76,29 +90,30 @@ async def match_fingerprint(file: UploadFile = File(...), request: Request = Non
         db_img_path = os.path.join("database/fingerprints", profile["fingerprint"])
         db_img = cv2.imread(db_img_path, cv2.IMREAD_GRAYSCALE)
         if db_img is None:
-            print(f"Warning: fingerprint image not found for {profile['fingerprint']}")
             continue
+        db_img = apply_clahe(db_img)
         score = compare_fingerprints(uploaded_img, db_img)
-        if score > best_score and score > MATCH_THRESHOLD:
+        print(f"Compared with {profile['name']}, Score: {score:.2f}")
+
+        if score > best_score and score >= MATCH_THRESHOLD:
             best_score = score
             matched_profile = profile.copy()
             host_url = str(request.base_url) if request else "http://localhost:8000/"
             matched_profile["photo"] = f"{host_url}static/{profile['photo']}"
 
     if matched_profile:
-        return JSONResponse(
-            content={"status": "success", "data": matched_profile}, status_code=200
-        )
+        return JSONResponse(content={"status": "success", "data": matched_profile}, status_code=200)
     else:
-        # No match found - return default profile with image.png
         host_url = str(request.base_url) if request else "http://localhost:8000/"
-        default_profile = {
-            "name": "Not Found",
-            "age": None,
-            "photo": f"{host_url}static/image.png",
-            # fingerprint key omitted or empty
-        }
         return JSONResponse(
-            content={"status": "fail", "data": default_profile, "message": "No match found"},
+            content={
+                "status": "fail",
+                "message": "No match found",
+                "data": {
+                    "name": "Not Found",
+                    "age": None,
+                    "photo": f"{host_url}static/image.png"
+                }
+            },
             status_code=404,
         )
