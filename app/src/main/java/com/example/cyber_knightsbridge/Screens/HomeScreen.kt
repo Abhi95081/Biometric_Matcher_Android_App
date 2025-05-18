@@ -1,11 +1,13 @@
 package com.example.cyber_knightsbridge.Screens
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.provider.OpenableColumns
 import android.Manifest
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -42,13 +44,11 @@ fun HomeScreen() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    // States
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var matchResult by remember { mutableStateOf<FingerprintMatchResult?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // Permission handling based on SDK version
     val storagePermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         Manifest.permission.READ_MEDIA_IMAGES
     } else {
@@ -61,7 +61,6 @@ fun HomeScreen() {
         )
     }
 
-    // Permission launcher
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -69,7 +68,6 @@ fun HomeScreen() {
         errorMessage = if (!granted) "Permission denied. Please allow storage permission." else null
     }
 
-    // Image picker launcher
     val imagePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
@@ -99,7 +97,6 @@ fun HomeScreen() {
                     .fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Select Image Button
                 OutlinedButton(
                     onClick = {
                         if (!hasPermission) {
@@ -119,9 +116,8 @@ fun HomeScreen() {
                     Text("Select Fingerprint Image")
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(Modifier.height(24.dp))
 
-                // Display selected image or placeholder
                 if (selectedImageUri != null) {
                     Card(
                         modifier = Modifier
@@ -152,9 +148,8 @@ fun HomeScreen() {
                     )
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(Modifier.height(32.dp))
 
-                // Upload & Match Button
                 Button(
                     onClick = {
                         selectedImageUri?.let { uri ->
@@ -170,11 +165,14 @@ fun HomeScreen() {
                                     val response = RetrofitInstance.api.matchFingerprint(multipartBody)
                                     if (response.isSuccessful) {
                                         val profile = response.body()?.data
+                                        profile?.let {
+                                            Log.d("FingerprintMatch", "Name: ${it.name}, Age: ${it.age}, Photo: ${it.photo}")
+                                        }
                                         matchResult = if (profile != null)
                                             FingerprintMatchResult.Success(profile.name, profile.age, profile.photo)
                                         else FingerprintMatchResult.NotFound
                                     } else {
-                                        errorMessage = "Server error: ${response.code()}"
+                                        errorMessage = "Server error: ${response.code()} - ${response.message()}"
                                     }
                                 } catch (e: Exception) {
                                     errorMessage = "Error: ${e.localizedMessage ?: "Unknown error"}"
@@ -203,9 +201,8 @@ fun HomeScreen() {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(Modifier.height(32.dp))
 
-                // Display error or match result
                 when {
                     errorMessage != null -> {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -231,7 +228,6 @@ fun HomeScreen() {
     )
 }
 
-// Result sealed class
 sealed class FingerprintMatchResult {
     data class Success(val name: String, val age: Int?, val photo: String) : FingerprintMatchResult()
     object NotFound : FingerprintMatchResult()
@@ -263,24 +259,22 @@ fun ProfileCard(result: FingerprintMatchResult.Success) {
                     .background(Color.White, CircleShape)
                     .padding(4.dp)
             )
-            Spacer(modifier = Modifier.width(20.dp))
+            Spacer(Modifier.width(20.dp))
             Column {
                 Text("Name:", fontWeight = FontWeight.Medium, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
                 Text(result.name, fontWeight = FontWeight.Bold, fontSize = 22.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-//                if (result.age != null) {
-//                    Text("Age:", fontWeight = FontWeight.Medium, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
-//                    Text(result.age.toString(), fontWeight = FontWeight.Bold, fontSize = 22.sp)
-//                }
+                Spacer(Modifier.height(8.dp))
+//                Text("Age:", fontWeight = FontWeight.Medium, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+//                Text(result.age?.toString() ?: "Unknown", fontWeight = FontWeight.Bold, fontSize = 22.sp)
             }
         }
     }
 }
 
-// Utility: Create temp file from Uri safely with auto-closing streams
+@SuppressLint("Recycle")
 fun createTempFileFromUri(context: Context, uri: Uri): File {
     context.contentResolver.openInputStream(uri).use { inputStream ->
-        if (inputStream == null) throw Exception("Failed to open input stream from URI")
+        requireNotNull(inputStream) { "Failed to open input stream from URI" }
 
         val fileName = getFileName(context, uri).takeIf { it.isNotBlank() } ?: "image_temp.jpg"
         val extension = fileName.substringAfterLast('.', "")
@@ -289,14 +283,12 @@ fun createTempFileFromUri(context: Context, uri: Uri): File {
         val prefix = if (prefixRaw.length >= 3) prefixRaw else "img"
 
         val tempFile = File.createTempFile(prefix, suffix, context.cacheDir)
-        tempFile.outputStream().use { output ->
-            inputStream.copyTo(output)
-        }
+        tempFile.outputStream().use { output -> inputStream.copyTo(output) }
         return tempFile
     }
 }
 
-// Utility: Get filename from content Uri
+@SuppressLint("Recycle")
 fun getFileName(context: Context, uri: Uri): String {
     val cursor = context.contentResolver.query(uri, null, null, null, null)
     cursor?.use {

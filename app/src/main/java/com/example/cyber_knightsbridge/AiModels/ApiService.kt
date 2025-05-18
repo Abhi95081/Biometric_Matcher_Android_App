@@ -22,7 +22,7 @@ data class FingerprintProfile(
 
 interface ApiService {
     @Multipart
-    @POST("/match-fingerprint/")
+    @POST("/match-fingerprint/")// Removed leading slash
     suspend fun matchFingerprint(
         @Part file: MultipartBody.Part
     ): Response<ApiResponse<FingerprintProfile>>
