@@ -1,33 +1,44 @@
 package com.example.cyber_knightsbridge.Screens
 
 import android.content.Context
-import android.content.SharedPreferences
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.example.cyber_knightsbridge.R
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen() {
@@ -43,114 +54,162 @@ fun ProfileScreen() {
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let { photoUri = it.toString() }
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            photoUri = it.toString()
+        }
     }
 
-    val shimmerBrush = rememberShimmerBrush()
-
+    // Background gradient
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
-                    colors = listOf(Color(0xFF1E3C72), Color(0xFF2A5298))
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color(0xFFE3F2FD), Color(0xFFFFFDE7))
                 )
             )
-            .padding(24.dp)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentSize(Alignment.Center),
+                .fillMaxSize()
+                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Profile Image inside card
             Card(
-                shape = RoundedCornerShape(24.dp),
-                elevation = CardDefaults.cardElevation(12.dp),
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier
+                    .size(160.dp)
+                    .clickable(enabled = isEditing) { imagePickerLauncher.launch("image/*") },
+                shape = CircleShape,
+                elevation = CardDefaults.cardElevation(10.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
-                Column(
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surface)
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Profile image with shimmer overlay
-                    Box(
-                        modifier = Modifier
-                            .size(140.dp)
-                            .clip(CircleShape)
-                            .clickable(enabled = isEditing) {
-                                imagePickerLauncher.launch("image/*")
-                            }
-                            .background(shimmerBrush),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val painter = if (photoUri.isNotEmpty())
-                            rememberAsyncImagePainter(photoUri)
-                        else
-                            painterResource(R.drawable.img_1)
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    val painter = if (photoUri.isNotEmpty())
+                        rememberAsyncImagePainter(photoUri)
+                    else painterResource(R.drawable.img_1)
 
-                        Image(
-                            painter = painter,
-                            contentDescription = "Profile Picture",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.matchParentSize()
-                        )
-
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(Color.Transparent, Color(0x80000000))
-                                    )
-                                )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Image(
+                        painter = painter,
+                        contentDescription = "Profile Picture",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
 
                     if (isEditing) {
-                        GradientOutlinedField(label = "Name", value = name) { name = it }
-                        GradientOutlinedField(label = "Age", value = age) { age = it }
-                        GradientOutlinedField(label = "Department", value = department) { department = it }
-
-                        Button(
-                            onClick = {
-                                pref.saveProfile(name, age.toIntOrNull() ?: 0, department, photoUri)
-                                isEditing = false
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E88E5)),
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit",
+                            tint = Color.White,
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 16.dp),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text("💾 Save", fontSize = 16.sp)
-                        }
-                    } else {
-                        Text("👤 $name", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("🎂 Age: $age", style = MaterialTheme.typography.bodyLarge)
-                        Text("🏢 Department: $department", style = MaterialTheme.typography.bodyLarge)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("🖼️ Tap image to change", style = MaterialTheme.typography.bodySmall)
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Button(
-                            onClick = { isEditing = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF43A047)),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text("✏️ Edit", fontSize = 16.sp)
-                        }
+                                .align(Alignment.BottomEnd)
+                                .offset((-10).dp, (-10).dp)
+                                .size(32.dp)
+                                .background(Color(0xFF64B5F6), shape = CircleShape)
+                                .padding(6.dp)
+                        )
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(30.dp))
+
+            if (isEditing) {
+                AnimatedEditFields(
+                    name = name,
+                    age = age,
+                    department = department,
+                    onNameChange = { name = it },
+                    onAgeChange = { age = it },
+                    onDeptChange = { department = it }
+                )
+
+                GradientButton(
+                    text = "Save Changes",
+                    icon = Icons.Default.Check,
+                    gradient = Brush.horizontalGradient(listOf(Color(0xFF64B5F6), Color(0xFF81C784))),
+                    onClick = {
+                        pref.saveProfile(name, age.toIntOrNull() ?: 0, department, photoUri)
+                        isEditing = false
+                    }
+                )
+            } else {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = name.ifBlank { "Your Name" },
+                        fontSize = 26.sp,
+                        color = Color(0xFF2E7D32),
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Age: ${age.ifBlank { "--" }}", color = Color.DarkGray, fontSize = 16.sp)
+                    Text("Department: ${department.ifBlank { "--" }}", color = Color.DarkGray, fontSize = 16.sp)
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                GradientButton(
+                    text = "Edit Profile",
+                    icon = Icons.Default.Edit,
+                    gradient = Brush.horizontalGradient(listOf(Color(0xFFFF8A65), Color(0xFFFFD54F))),
+                    onClick = { isEditing = true }
+                )
+            }
         }
+    }
+}
+@Composable
+fun GradientButton(
+    text: String,
+    icon: ImageVector,
+    gradient: Brush,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+        contentPadding = PaddingValues(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(gradient)
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text, fontSize = 18.sp, fontWeight = FontWeight.Medium, color = Color.White)
+            }
+        }
+    }
+}
+
+
+@Composable
+fun AnimatedEditFields(
+    name: String,
+    age: String,
+    department: String,
+    onNameChange: (String) -> Unit,
+    onAgeChange: (String) -> Unit,
+    onDeptChange: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        GradientOutlinedField(label = "Full Name", value = name, onValueChange = onNameChange)
+        GradientOutlinedField(label = "Age", value = age, onValueChange = onAgeChange)
+        GradientOutlinedField(label = "Department", value = department, onValueChange = onDeptChange)
     }
 }
 
@@ -159,14 +218,21 @@ fun GradientOutlinedField(label: String, value: String, onValueChange: (String) 
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        label = { Text(label, color = Color.Black) },
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .padding(vertical = 8.dp),
+        singleLine = true,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Color(0xFF42A5F5),
-            unfocusedBorderColor = Color.LightGray
-        )
+            unfocusedBorderColor = Color(0xFF90CAF9),
+            cursorColor = Color.Black, // Make cursor white too
+            focusedTextColor = Color.Blue,
+            unfocusedTextColor = Color.Black,
+            focusedLabelColor = Color(0xFF42A5F5),
+            unfocusedLabelColor = Color(0xFF90CAF9),
+        ),
+        textStyle = TextStyle(fontSize = 16.sp)
     )
 }
 
@@ -188,11 +254,9 @@ fun rememberShimmerBrush(): Brush {
     )
 }
 
-
+// Shared Pref Manager
 class SharedPrefManager(context: Context) {
-
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences("user_profile", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("user_profile", Context.MODE_PRIVATE)
 
     fun saveProfile(name: String, age: Int, department: String, photoUri: String) {
         prefs.edit()
@@ -208,5 +272,3 @@ class SharedPrefManager(context: Context) {
     fun getDepartment(): String = prefs.getString("department", "") ?: ""
     fun getPhotoUri(): String = prefs.getString("photoUri", "") ?: ""
 }
-
-
