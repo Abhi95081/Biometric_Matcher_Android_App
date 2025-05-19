@@ -16,6 +16,8 @@ A modern, secure, and visually immersive Android app using **Jetpack Compose**, 
 
 ---
 
+![Demo](output.gif)
+
 ## 📸 Screenshots
 
 ### 🟣 Splash Screen
