@@ -57,28 +57,33 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    // add biometric dependencies.
-    implementation("androidx.biometric:biometric:1.1.0")
+    // Biometric dependencies
+    implementation("androidx.biometric:biometric:1.2.0-alpha05") // latest alpha, you can use stable 1.1.0 if preferred
 
-    implementation("androidx.biometric:biometric:1.2.0-alpha05") // Or latest
+    // Material3 (use latest stable)
     implementation("androidx.compose.material3:material3:1.2.1")
 
+    // Navigation Compose
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
-
+    // Retrofit & OkHttp
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
-    implementation("androidx.activity:activity-compose:1.8.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
-
-    implementation ("androidx.activity:activity-ktx:1.7.2") // or latest stable
-    implementation ("androidx.fragment:fragment-ktx:1.6.1")  // or latest stable
-    implementation ("androidx.compose.ui:ui:1.5.0")
-
-    implementation("io.coil-kt:coil-compose:2.5.0")
-
     implementation("com.squareup.okhttp3:logging-interceptor:4.9.3")
 
+    // Activity & Lifecycle
+    implementation("androidx.activity:activity-compose:1.8.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
+    implementation("androidx.activity:activity-ktx:1.7.2")
+    implementation("androidx.fragment:fragment-ktx:1.6.1")
 
+    // Compose UI Core - needed for Shadow, TextStyle, etc.
+    implementation("androidx.compose.ui:ui:1.5.0")
+
+    // Coil for image loading in Compose
+    implementation("io.coil-kt:coil-compose:2.5.0")
+
+    // Lottie Compose for animations
+    implementation("com.airbnb.android:lottie-compose:6.3.0")
 }
