@@ -47,7 +47,7 @@ A sleek and secure Android application built with **Jetpack Compose**, integrati
 ### 🔄 Updated Profile
 <img src="https://github.com/user-attachments/assets/f6ea6aa2-66cf-4a92-a1de-3ba5795570c9" width="200"/>
 
-### 🔄 Matching With Db
+### 🛢️ Fingerprint Database matching with Accuracy
 <img src="https://github.com/user-attachments/assets/29a4ba94-3bbf-43d9-b61c-b2b19e142f45" width="500"/>
 
 
