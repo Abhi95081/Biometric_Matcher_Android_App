@@ -8,7 +8,7 @@ A sleek and secure Android application built with **Jetpack Compose**, integrati
 
 - 🌠 **Animated Splash Screen** with elegant gradient transitions  
 - 🔐 **Biometric Authentication** using fingerprint sensor (AndroidX Biometric)  
-- 🧠 **Fingerprint Matcher** to identify users against registered profiles  
+- 🧠 **Fingerprint Matcher** to identify by forensic teams 
 - 👤 **User Profile Screen** with rich, editable user details  
 - ✍️ **Profile Editing Interface** with smooth Compose transitions  
 - 💅 **Material You (Material 3)** design with modern styling  
