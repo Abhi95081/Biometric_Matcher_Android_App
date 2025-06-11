@@ -1,4 +1,4 @@
-# 🔐 Cyber KnightsBridge – Biometric Matcher Android App
+# 🔐Biometric Matcher Android App
 
 A sleek and secure Android application built with **Jetpack Compose**, integrating **Biometric Authentication** and **Fingerprint Matching**. Cyber KnightsBridge is designed for modern identity verification scenarios with a refined, immersive UI and robust backend logic.
 
